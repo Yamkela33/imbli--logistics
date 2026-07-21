@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Track Your Shipment | IMBLI Logistics and Projects</title>
+<style>
+  :root {
+    --navy: #0b2545;
+    --teal: #0f766e;
+    --green: #16a34a;
+    --light-bg: #f4f7f9;
+    --text: #1e293b;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: var(--light-bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    background: var(--navy);
+    color: #fff;
+    padding: 24px 20px;
+    text-align: center;
+  }
+
+  header h1 {
+    font-size: 1.6rem;
+    letter-spacing: 0.5px;
+  }
+
+  header p {
+    color: #cbd5e1;
+    margin-top: 6px;
+    font-size: 0.95rem;
+  }
+
+  main {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    padding: 40px 20px;
+  }
+
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    padding: 32px;
+    width: 100%;
+    max-width: 520px;
+  }
+
+  .card h2 {
+    color: var(--navy);
+    font-size: 1.2rem;
+    margin-bottom: 16px;
+  }
+
+  .search-row {
+    display: flex;
+    gap: 10px;
+  }
+
+  input[type="text"] {
+    flex: 1;
+    padding: 12px 14px;
+    border: 2px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 1rem;
+  }
+
+  input[type="text"]:focus {
+    outline: none;
+    border-color: var(--teal);
+  }
+
+  button {
+    background: var(--teal);
+    color: #fff;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  button:hover {
+    background: var(--green);
+  }
+
+  #result {
+    margin-top: 24px;
+  }
+
+  .status-box {
+    border-left: 5px solid var(--green);
+    background: #f0fdf4;
+    padding: 18px;
+    border-radius: 8px;
+  }
+
+  .status-box.not-found {
+    border-left-color: #dc2626;
+    background: #fef2f2;
+  }
+
+  .status-box .row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+  }
+
+  .status-box .row:last-child { border-bottom: none; }
+
+  .status-box .label {
+    font-weight: 600;
+    color: var(--navy);
+  }
+
+  .loading {
+    color: #64748b;
+    font-style: italic;
+  }
+
+  footer {
+    text-align: center;
+    padding: 18px;
+    color: #64748b;
+    font-size: 0.85rem;
+  }
+
+  footer a {
+    color: var(--teal);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>IMBLI Logistics and Projects</h1>
+  <p>Track your shipment status</p>
+</header>
+
+<main>
+  <div class="card">
+    <h2>Enter your tracking number</h2>
+    <div class="search-row">
+      <input type="text" id="trackingInput" placeholder="e.g. IMB-00123" />
+      <button id="trackBtn">Track</button>
+    </div>
+    <div id="result"></div>
+  </div>
+</main>
+
+<footer>
+  Need help? <a href="index.html">Return to homepage</a>
+</footer>
+
+<script>
+  // ====== CONFIGURATION ======
+  // Paste your published Google Sheet CSV link here.
+  // File > Share > Publish to web > choose the sheet > CSV format.
+  const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTvNzFM4v-fNQcCfOn6reYU33M2mTi4cys0Z9c89faGdCHmaPaqSENSqAmU1hdCpHmcE4RGCzbHFdoG/pub?gid=0&single=true&output=csv";
+  // ============================
+
+  const input = document.getElementById('trackingInput');
+  const button = document.getElementById('trackBtn');
+  const resultDiv = document.getElementById('result');
+
+  function parseCSV(text) {
+    const rows = text.trim().split('\n').map(r => r.split(','));
+    const headers = rows[0].map(h => h.trim());
+    return rows.slice(1).map(row => {
+      const obj = {};
+      headers.forEach((h, i) => obj[h] = (row[i] || '').trim());
+      return obj;
+    });
+  }
+
+  async function trackShipment() {
+    const query = input.value.trim().toLowerCase();
+    if (!query) {
+      resultDiv.innerHTML = '<p class="loading">Please enter a tracking number.</p>';
+      return;
+    }
+
+    resultDiv.innerHTML = '<p class="loading">Looking up your shipment...</p>';
+
+    try {
+      const response = await fetch(SHEET_CSV_URL + '&t=' + Date.now());
+      const text = await response.text();
+      const rows = parseCSV(text);
+
+      const match = rows.find(r => (r.TrackingNumber || '').toLowerCase() === query);
+
+      if (match) {
+        resultDiv.innerHTML = `
+          <div class="status-box">
+            <div class="row"><span class="label">Tracking Number</span><span>${match.TrackingNumber}</span></div>
+            <div class="row"><span class="label">Status</span><span>${match.Status || 'N/A'}</span></div>
+            <div class="row"><span class="label">Location</span><span>${match.Location || 'N/A'}</span></div>
+            <div class="row"><span class="label">Last Updated</span><span>${match.LastUpdated || 'N/A'}</span></div>
+          </div>
+        `;
+      } else {
+        resultDiv.innerHTML = `
+          <div class="status-box not-found">
+            No shipment found for "<strong>${match ? match.TrackingNumber : input.value}</strong>". Please check the number and try again, or contact us directly.
+          </div>
+        `;
+      }
+    } catch (err) {
+      resultDiv.innerHTML = '<p class="loading">Unable to load tracking data right now. Please try again shortly.</p>';
+    }
+  }
+
+  button.addEventListener('click', trackShipment);
+  input.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') trackShipment();
+  });
+</script>
+
+</body>
+</html>
